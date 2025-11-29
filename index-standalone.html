@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SITTA - Sistem Bahan Ajar UT</title>
+    <link rel="stylesheet" href="./assets/css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <h1>SITTA - Sistem Bahan Ajar Universitas Terbuka</h1>
+        <nav class="app-nav">
+          <button
+            @click="activeTab = 'stok'"
+            :class="{active: activeTab === 'stok'}"
+          >
+            Stok Bahan Ajar
+          </button>
+          <button
+            @click="activeTab = 'tracking'"
+            :class="{active: activeTab === 'tracking'}"
+          >
+            Tracking DO
+          </button>
+        </nav>
+      </header>
+
+      <main class="app-main">
+        <!-- Loading -->
+        <div v-if="isLoading" style="text-align: center; padding: 3rem">
+          <p>Memuat data...</p>
+        </div>
+
+        <!-- Tab Stok -->
+        <div v-else-if="activeTab === 'stok'">
+          <ba-stock-table :initial-data="bahanAjarData"></ba-stock-table>
+        </div>
+
+        <!-- Tab Tracking -->
+        <div v-else-if="activeTab === 'tracking'">
+          <do-tracking :initial-data="bahanAjarData"></do-tracking>
+        </div>
+      </main>
+    </div>
+
+    <!-- Vue 2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+
+    <script>
+      // ==================== DATA SERVICE ====================
+      const DataService = {
+        data: null,
+
+        async loadData() {
+          console.log("Loading data...");
+          try {
+            const response = await fetch("./data/dataBahanAjar.json");
+            if (!response.ok) throw new Error("File not found");
+            this.data = await response.json();
+            console.log("Data loaded from JSON:", this.data);
+            return this.data;
+          } catch (error) {
+            console.warn("Using fallback data:", error.message);
+            this.data = this.getFallbackData();
+            return this.data;
+          }
+        },
+
+        getFallbackData() {
+          return {
+            upbjjList: [
+              "Jakarta",
+              "Surabaya",
+              "Makassar",
+              "Padang",
+              "Denpasar",
+            ],
+            kategoriList: [
+              "MK Wajib",
+              "MK Pilihan",
+              "Praktikum",
+              "Problem-Based",
+            ],
+            pengirimanList: [
+              { kode: "REG", nama: "Reguler (3-5 hari)" },
+              { kode: "EXP", nama: "Ekspres (1-2 hari)" },
+            ],
+            paket: [
+              {
+                kode: "PAKET-UT-001",
+                nama: "PAKET IPS Dasar",
+                isi: ["EKMA4116", "EKMA4115"],
+                harga: 120000,
+              },
+              {
+                kode: "PAKET-UT-002",
+                nama: "PAKET IPA Dasar",
+                isi: ["BIOL4201", "FISIP4001"],
+                harga: 140000,
+              },
+            ],
+            stok: [
+              {
+                kode: "EKMA4116",
+                judul: "Pengantar Manajemen",
+                kategori: "MK Wajib",
+                upbjj: "Jakarta",
+                lokasiRak: "R1-A3",
+                harga: 65000,
+                qty: 28,
+                safety: 20,
+                catatanHTML: "<em>Edisi 2024, cetak ulang</em>",
+              },
+              {
+                kode: "EKMA4115",
+                judul: "Pengantar Akuntansi",
+                kategori: "MK Wajib",
+                upbjj: "Jakarta",
+                lokasiRak: "R1-A4",
+                harga: 60000,
+                qty: 7,
+                safety: 15,
+                catatanHTML: "<strong>Cover baru</strong>",
+              },
+              {
+                kode: "BIOL4201",
+                judul: "Biologi Umum (Praktikum)",
+                kategori: "Praktikum",
+                upbjj: "Surabaya",
+                lokasiRak: "R3-B2",
+                harga: 80000,
+                qty: 12,
+                safety: 10,
+                catatanHTML: "Butuh <u>pendingin</u> untuk kit basah",
+              },
+              {
+                kode: "FISIP4001",
+                judul: "Dasar-Dasar Sosiologi",
+                kategori: "MK Pilihan",
+                upbjj: "Makassar",
+                lokasiRak: "R2-C1",
+                harga: 55000,
+                qty: 2,
+                safety: 8,
+                catatanHTML: "Stok <i>menipis</i>, prioritaskan reorder",
+              },
+              {
+                kode: "STSI4209",
+                judul: "Pemrograman JavaScript",
+                kategori: "MK Wajib",
+                upbjj: "Jakarta",
+                lokasiRak: "R1-B5",
+                harga: 70000,
+                qty: 0,
+                safety: 15,
+                catatanHTML: "<strong style='color: red;'>KOSONG</strong>",
+              },
+            ],
+            tracking: [
+              {
+                nomorDO: "DO2025-0001",
+                nim: "123456789",
+                nama: "Rina Wulandari",
+                status: "Dalam Perjalanan",
+                ekspedisi: "REG",
+                tanggalKirim: "2025-08-25",
+                paket: "PAKET-UT-001",
+                total: 120000,
+                perjalanan: [
+                  {
+                    waktu: "2025-08-25 10:12:20",
+                    keterangan: "Penerimaan di Loket: TANGSEL",
+                  },
+                ],
+              },
+            ],
+          };
+        },
+      };
+
+      // ==================== STATUS BADGE COMPONENT ====================
+      Vue.component("status-badge", {
+        props: ["qty", "safety", "catatan"],
+        computed: {
+          statusClass() {
+            if (this.qty === 0) return "status-kosong";
+            if (this.qty < this.safety) return "status-menipis";
+            return "status-aman";
+          },
+          statusText() {
+            if (this.qty === 0) return "Kosong";
+            if (this.qty < this.safety) return "Menipis";
+            return "Aman";
+          },
+          statusIcon() {
+            if (this.qty === 0) return "⛔";
+            if (this.qty < this.safety) return "⚠️";
+            return "✅";
+          },
+        },
+        template: `
+            <div class="tooltip-container">
+                <span :class="['status-badge', statusClass]">
+                    {{ statusIcon }} {{ statusText }}
+                </span>
+                <div class="tooltip-text" v-if="catatan" v-html="catatan"></div>
+            </div>
+        `,
+      });
+
+      // ==================== MODAL COMPONENT ====================
+      Vue.component("app-modal", {
+        props: ["show", "title"],
+        methods: {
+          close() {
+            this.$emit("close");
+          },
+        },
+        template: `
+            <div :class="['modal', {show: show}]" @click.self="close">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>{{ title }}</h2>
+                        <span class="close" @click="close">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <slot></slot>
+                    </div>
+                </div>
+            </div>
+        `,
+      });
+
+      // ==================== STOCK TABLE COMPONENT ====================
+      Vue.component("ba-stock-table", {
+        props: ["initialData"],
+        data() {
+          return {
+            stokList: [],
+            upbjjList: [],
+            kategoriList: [],
+            filterUpbjj: "",
+            filterKategori: "",
+            filterLowStock: false,
+            sortBy: "",
+            sortDesc: false,
+            showModal: false,
+            modalMode: "create",
+            formData: {
+              kode: "",
+              judul: "",
+              kategori: "",
+              upbjj: "",
+              lokasiRak: "",
+              harga: 0,
+              qty: 0,
+              safety: 0,
+              catatanHTML: "",
+            },
+            editIndex: -1,
+          };
+        },
+        computed: {
+          availableKategori() {
+            if (!this.filterUpbjj) return [];
+            const filtered = this.stokList
+              .filter((item) => item.upbjj === this.filterUpbjj)
+              .map((item) => item.kategori);
+            return [...new Set(filtered)];
+          },
+          filteredStok() {
+            let result = [...this.stokList];
+            if (this.filterUpbjj)
+              result = result.filter((item) => item.upbjj === this.filterUpbjj);
+            if (this.filterKategori)
+              result = result.filter(
+                (item) => item.kategori === this.filterKategori
+              );
+            if (this.filterLowStock)
+              result = result.filter(
+                (item) => item.qty < item.safety || item.qty === 0
+              );
+
+            if (this.sortBy) {
+              result.sort((a, b) => {
+                let valA = a[this.sortBy];
+                let valB = b[this.sortBy];
+                if (typeof valA === "string") {
+                  valA = valA.toLowerCase();
+                  valB = valB.toLowerCase();
+                }
+                if (valA < valB) return this.sortDesc ? 1 : -1;
+                if (valA > valB) return this.sortDesc ? -1 : 1;
+                return 0;
+              });
+            }
+            return result;
+          },
+        },
+        watch: {
+          filterUpbjj(newVal, oldVal) {
+            if (newVal !== oldVal) this.filterKategori = "";
+          },
+        },
+        methods: {
+          formatHarga(harga) {
+            return "Rp " + harga.toLocaleString("id-ID");
+          },
+          formatQty(qty) {
+            return qty + " buah";
+          },
+          sortTable(field) {
+            if (this.sortBy === field) this.sortDesc = !this.sortDesc;
+            else {
+              this.sortBy = field;
+              this.sortDesc = false;
+            }
+          },
+          resetFilter() {
+            this.filterUpbjj = "";
+            this.filterKategori = "";
+            this.filterLowStock = false;
+            this.sortBy = "";
+          },
+          openCreateModal() {
+            this.modalMode = "create";
+            this.formData = {
+              kode: "",
+              judul: "",
+              kategori: "",
+              upbjj: "",
+              lokasiRak: "",
+              harga: 0,
+              qty: 0,
+              safety: 0,
+              catatanHTML: "",
+            };
+            this.showModal = true;
+          },
+          openEditModal(index) {
+            this.modalMode = "edit";
+            this.editIndex = index;
+            this.formData = { ...this.filteredStok[index] };
+            this.showModal = true;
+          },
+          closeModal() {
+            this.showModal = false;
+          },
+          handleFormSubmit(e) {
+            e.preventDefault();
+            if (this.modalMode === "create") {
+              this.stokList.push({ ...this.formData });
+            } else {
+              const originalItem = this.filteredStok[this.editIndex];
+              const originalIndex = this.stokList.indexOf(originalItem);
+              this.$set(this.stokList, originalIndex, { ...this.formData });
+            }
+            this.closeModal();
+          },
+          deleteItem(index) {
+            if (confirm("Hapus data ini?")) {
+              const item = this.filteredStok[index];
+              const originalIndex = this.stokList.indexOf(item);
+              this.stokList.splice(originalIndex, 1);
+            }
+          },
+        },
+        created() {
+          console.log("Stock table created with data:", this.initialData);
+          if (this.initialData) {
+            this.stokList = [...this.initialData.stok];
+            this.upbjjList = [...this.initialData.upbjjList];
+            this.kategoriList = [...this.initialData.kategoriList];
+          }
+        },
+        template: `
+            <div>
+                <div class="filter-section">
+                    <h3 style="margin-bottom: 1rem;">Filter & Pencarian</h3>
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label>UT Daerah</label>
+                            <select v-model="filterUpbjj">
+                                <option value="">Semua UT Daerah</option>
+                                <option v-for="upbjj in upbjjList" :key="upbjj" :value="upbjj">{{ upbjj }}</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" v-if="filterUpbjj">
+                            <label>Kategori</label>
+                            <select v-model="filterKategori">
+                                <option value="">Semua Kategori</option>
+                                <option v-for="kat in availableKategori" :key="kat" :value="kat">{{ kat }}</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" v-model="filterLowStock"> Stok menipis/kosong
+                            </label>
+                        </div>
+                        <div class="filter-group">
+                            <button @click="resetFilter" class="btn btn-secondary">Reset</button>
+                        </div>
+                        <div class="filter-group">
+                            <button @click="openCreateModal" class="btn btn-success">+ Tambah</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th @click="sortTable('kode')">Kode</th>
+                                <th @click="sortTable('judul')">Nama MK</th>
+                                <th>Kategori</th>
+                                <th>UT Daerah</th>
+                                <th>Lokasi Rak</th>
+                                <th @click="sortTable('harga')">Harga</th>
+                                <th @click="sortTable('qty')">Stok</th>
+                                <th>Safety</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in filteredStok" :key="item.kode">
+                                <td>{{ item.kode }}</td>
+                                <td>{{ item.judul }}</td>
+                                <td>{{ item.kategori }}</td>
+                                <td>{{ item.upbjj }}</td>
+                                <td>{{ item.lokasiRak }}</td>
+                                <td>{{ formatHarga(item.harga) }}</td>
+                                <td>{{ formatQty(item.qty) }}</td>
+                                <td>{{ formatQty(item.safety) }}</td>
+                                <td>
+                                    <status-badge :qty="item.qty" :safety="item.safety" :catatan="item.catatanHTML"></status-badge>
+                                </td>
+                                <td>
+                                    <button @click="openEditModal(index)" class="btn btn-primary btn-small">Edit</button>
+                                    <button @click="deleteItem(index)" class="btn btn-danger btn-small" style="margin-left: 0.5rem;">Hapus</button>
+                                </td>
+                            </tr>
+                            <tr v-if="filteredStok.length === 0">
+                                <td colspan="10" style="text-align: center; padding: 2rem;">Tidak ada data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <app-modal :show="showModal" :title="modalMode === 'create' ? 'Tambah Bahan Ajar' : 'Edit Bahan Ajar'" @close="closeModal">
+                    <form @submit="handleFormSubmit">
+                        <div class="form-group">
+                            <label>Kode MK *</label>
+                            <input v-model="formData.kode" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Judul *</label>
+                            <input v-model="formData.judul" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Kategori *</label>
+                            <select v-model="formData.kategori" required>
+                                <option value="">Pilih</option>
+                                <option v-for="k in kategoriList" :key="k">{{ k }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>UT Daerah *</label>
+                            <select v-model="formData.upbjj" required>
+                                <option value="">Pilih</option>
+                                <option v-for="u in upbjjList" :key="u">{{ u }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Lokasi Rak *</label>
+                            <input v-model="formData.lokasiRak" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Harga *</label>
+                            <input v-model.number="formData.harga" type="number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Stok *</label>
+                            <input v-model.number="formData.qty" type="number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Safety Stock *</label>
+                            <input v-model.number="formData.safety" type="number" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" @click="closeModal" class="btn btn-secondary">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan</button>
+                        </div>
+                    </form>
+                </app-modal>
+            </div>
+        `,
+      });
+
+      // ==================== TRACKING COMPONENT ====================
+      Vue.component("do-tracking", {
+        props: ["initialData"],
+        data() {
+          return {
+            trackingList: [],
+            paketList: [],
+            pengirimanList: [],
+            stokList: [],
+            searchType: "do",
+            searchQuery: "",
+            searchResults: [],
+            showResults: false,
+            showAddModal: false,
+            showProgressModal: false,
+            currentDO: null,
+            formData: {
+              nomorDO: "",
+              nim: "",
+              nama: "",
+              ekspedisi: "",
+              paket: "",
+              tanggalKirim: "",
+              total: 0,
+            },
+            progressData: {
+              waktu: "",
+              keterangan: "",
+            },
+          };
+        },
+        computed: {
+          nextDONumber() {
+            const year = new Date().getFullYear();
+            const existingDOs = this.trackingList.filter((t) =>
+              t.nomorDO.startsWith(`DO${year}`)
+            );
+            const maxSeq =
+              existingDOs.length > 0
+                ? Math.max(
+                    ...existingDOs.map((t) => {
+                      const parts = t.nomorDO.split("-");
+                      return parseInt(parts[1]);
+                    })
+                  )
+                : 0;
+            const nextSeq = (maxSeq + 1).toString().padStart(4, "0");
+            return `DO${year}-${nextSeq}`;
+          },
+          selectedPaketDetails() {
+            if (!this.formData.paket) return null;
+            const paket = this.paketList.find(
+              (p) => p.kode === this.formData.paket
+            );
+            if (!paket) return null;
+            const details = paket.isi.map((kode) => {
+              const stok = this.stokList.find((s) => s.kode === kode);
+              return stok ? `${stok.kode} - ${stok.judul}` : kode;
+            });
+            return { ...paket, details };
+          },
+        },
+        watch: {
+          "formData.paket"(newVal) {
+            if (newVal) {
+              const paket = this.paketList.find((p) => p.kode === newVal);
+              if (paket) this.formData.total = paket.harga;
+            }
+          },
+        },
+        methods: {
+          formatTanggal(dateStr) {
+            const date = new Date(dateStr);
+            const months = [
+              "Januari",
+              "Februari",
+              "Maret",
+              "April",
+              "Mei",
+              "Juni",
+              "Juli",
+              "Agustus",
+              "September",
+              "Oktober",
+              "November",
+              "Desember",
+            ];
+            return `${date.getDate()} ${
+              months[date.getMonth()]
+            } ${date.getFullYear()}`;
+          },
+          formatHarga(harga) {
+            return "Rp " + harga.toLocaleString("id-ID");
+          },
+          handleSearch() {
+            if (!this.searchQuery.trim()) {
+              this.showResults = false;
+              this.searchResults = [];
+              return;
+            }
+            const query = this.searchQuery.toLowerCase().trim();
+            if (this.searchType === "do") {
+              this.searchResults = this.trackingList.filter((t) =>
+                t.nomorDO.toLowerCase().includes(query)
+              );
+            } else {
+              this.searchResults = this.trackingList.filter((t) =>
+                t.nim.includes(query)
+              );
+            }
+            this.showResults = true;
+          },
+          clearSearch() {
+            this.searchQuery = "";
+            this.searchResults = [];
+            this.showResults = false;
+          },
+          handleSearchKeydown(e) {
+            if (e.key === "Enter") {
+              this.handleSearch();
+            } else if (e.key === "Escape") {
+              this.clearSearch();
+            }
+          },
+          openAddModal() {
+            this.formData = {
+              nomorDO: this.nextDONumber,
+              nim: "",
+              nama: "",
+              ekspedisi: "",
+              paket: "",
+              tanggalKirim: this.getCurrentDate(),
+              total: 0,
+            };
+            this.showAddModal = true;
+          },
+          closeAddModal() {
+            this.showAddModal = false;
+          },
+          getCurrentDate() {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+          },
+          getCurrentDateTime() {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            const hours = String(date.getHours()).padStart(2, "0");
+            const minutes = String(date.getMinutes()).padStart(2, "0");
+            const seconds = String(date.getSeconds()).padStart(2, "0");
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+          },
+          handleAddDO(e) {
+            e.preventDefault();
+            const newDO = {
+              nomorDO: this.formData.nomorDO,
+              nim: this.formData.nim,
+              nama: this.formData.nama,
+              status: "Dalam Perjalanan",
+              ekspedisi: this.formData.ekspedisi,
+              tanggalKirim: this.formData.tanggalKirim,
+              paket: this.formData.paket,
+              total: this.formData.total,
+              perjalanan: [
+                {
+                  waktu: this.getCurrentDateTime(),
+                  keterangan: "Pesanan dibuat dan siap dikirim",
+                },
+              ],
+            };
+            this.trackingList.push(newDO);
+            this.closeAddModal();
+            this.searchType = "do";
+            this.searchQuery = newDO.nomorDO;
+            this.handleSearch();
+          },
+          openProgressModal(doItem) {
+            this.currentDO = doItem;
+            this.progressData = {
+              waktu: this.getCurrentDateTime(),
+              keterangan: "",
+            };
+            this.showProgressModal = true;
+          },
+          closeProgressModal() {
+            this.showProgressModal = false;
+            this.currentDO = null;
+          },
+          handleAddProgress(e) {
+            e.preventDefault();
+            if (!this.progressData.keterangan.trim()) {
+              alert("Keterangan harus diisi");
+              return;
+            }
+            const newProgress = {
+              waktu: this.progressData.waktu,
+              keterangan: this.progressData.keterangan,
+            };
+            this.currentDO.perjalanan.push(newProgress);
+            this.closeProgressModal();
+          },
+          getEkspedisiName(kode) {
+            const ekspedisi = this.pengirimanList.find((e) => e.kode === kode);
+            return ekspedisi ? ekspedisi.nama : kode;
+          },
+          getPaketName(kode) {
+            const paket = this.paketList.find((p) => p.kode === kode);
+            return paket ? paket.nama : kode;
+          },
+        },
+        created() {
+          if (this.initialData) {
+            this.trackingList = [...this.initialData.tracking];
+            this.paketList = [...this.initialData.paket];
+            this.pengirimanList = [...this.initialData.pengirimanList];
+            this.stokList = [...this.initialData.stok];
+          }
+        },
+        template: `
+            <div>
+                <div class="search-box">
+                    <h3 style="margin-bottom: 1rem;">Cari Tracking DO</h3>
+                    <div class="search-group">
+                        <div class="filter-group">
+                            <label>Cari Berdasarkan</label>
+                            <select v-model="searchType">
+                                <option value="do">Nomor DO</option>
+                                <option value="nim">NIM</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="flex: 2;">
+                            <label>{{ searchType === 'do' ? 'Nomor DO' : 'NIM' }}</label>
+                            <input v-model="searchQuery" 
+                                   @keydown="handleSearchKeydown"
+                                   :placeholder="searchType === 'do' ? 'DO2025-0001' : '123456789'">
+                        </div>
+                        <div class="filter-group">
+                            <button @click="handleSearch" class="btn btn-primary">Cari</button>
+                        </div>
+                        <div class="filter-group">
+                            <button @click="clearSearch" class="btn btn-secondary">Reset</button>
+                        </div>
+                        <div class="filter-group">
+                            <button @click="openAddModal" class="btn btn-success">+ Tambah DO</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #718096;">
+                        <em>Tekan Enter untuk cari, Esc untuk reset</em>
+                    </div>
+                </div>
+                
+                <div v-if="showResults">
+                    <div v-if="searchResults.length === 0" class="card">
+                        <p style="text-align: center; color: #718096;">Tidak ada hasil yang ditemukan</p>
+                    </div>
+                    
+                    <div v-for="item in searchResults" :key="item.nomorDO" class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #e2e8f0;">
+                            <div>
+                                <h3 style="color: #667eea;">{{ item.nomorDO }}</h3>
+                                <p style="color: #718096; margin-top: 0.25rem;">{{ item.nama }} ({{ item.nim }})</p>
+                            </div>
+                            <span :class="['status-badge', item.status === 'Terkirim' ? 'status-aman' : 'status-menipis']">
+                                {{ item.status }}
+                            </span>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                            <div>
+                                <strong>Ekspedisi:</strong><br>
+                                {{ getEkspedisiName(item.ekspedisi) }}
+                            </div>
+                            <div>
+                                <strong>Tanggal Kirim:</strong><br>
+                                {{ formatTanggal(item.tanggalKirim) }}
+                            </div>
+                            <div>
+                                <strong>Paket:</strong><br>
+                                {{ item.paket }} - {{ getPaketName(item.paket) }}
+                            </div>
+                            <div>
+                                <strong>Total:</strong><br>
+                                {{ formatHarga(item.total) }}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h4>Perjalanan Paket</h4>
+                                <button @click="openProgressModal(item)" class="btn btn-primary btn-small">
+                                    + Tambah Progress
+                                </button>
+                            </div>
+                            
+                            <div class="timeline">
+                                <div v-for="(progress, pIndex) in item.perjalanan" :key="pIndex" class="timeline-item">
+                                    <div class="timeline-time">{{ progress.waktu }}</div>
+                                    <div class="timeline-desc">{{ progress.keterangan }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal Add DO -->
+                <app-modal :show="showAddModal" title="Tambah Delivery Order Baru" @close="closeAddModal">
+                    <form @submit="handleAddDO">
+                        <div class="form-group">
+                            <label>Nomor DO</label>
+                            <input v-model="formData.nomorDO" readonly style="background: #f7fafc;">
+                            <div style="font-size: 0.875rem; color: #718096; margin-top: 0.25rem;">
+                                <em>Tergenerate otomatis</em>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>NIM *</label>
+                            <input v-model="formData.nim" required placeholder="123456789">
+                        </div>
+                        <div class="form-group">
+                            <label>Nama *</label>
+                            <input v-model="formData.nama" required placeholder="Nama lengkap">
+                        </div>
+                        <div class="form-group">
+                            <label>Ekspedisi *</label>
+                            <select v-model="formData.ekspedisi" required>
+                                <option value="">Pilih Ekspedisi</option>
+                                <option v-for="eks in pengirimanList" :key="eks.kode" :value="eks.kode">
+                                    {{ eks.nama }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Paket Bahan Ajar *</label>
+                            <select v-model="formData.paket" required>
+                                <option value="">Pilih Paket</option>
+                                <option v-for="paket in paketList" :key="paket.kode" :value="paket.kode">
+                                    {{ paket.kode }} - {{ paket.nama }}
+                                </option>
+                            </select>
+                        </div>
+                        <div v-if="selectedPaketDetails" style="background: #f7fafc; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                            <strong>Isi Paket:</strong>
+                            <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                                <li v-for="(detail, idx) in selectedPaketDetails.details" :key="idx">
+                                    {{ detail }}
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal Kirim *</label>
+                            <input v-model="formData.tanggalKirim" type="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Harga</label>
+                            <input :value="formatHarga(formData.total)" readonly style="background: #f7fafc;">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" @click="closeAddModal" class="btn btn-secondary">Batal</button>
+                            <button type="submit" class="btn btn-success">Simpan DO</button>
+                        </div>
+                    </form>
+                </app-modal>
+                
+                <!-- Modal Add Progress -->
+                <app-modal :show="showProgressModal" title="Tambah Status Progress" @close="closeProgressModal">
+                    <form @submit="handleAddProgress">
+                        <div class="form-group">
+                            <label>Waktu</label>
+                            <input v-model="progressData.waktu" readonly style="background: #f7fafc;">
+                        </div>
+                        <div class="form-group">
+                            <label>Keterangan *</label>
+                            <textarea v-model="progressData.keterangan" rows="3" required
+                                placeholder="Contoh: Paket tiba di gudang sortir Jakarta"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" @click="closeProgressModal" class="btn btn-secondary">Batal</button>
+                            <button type="submit" class="btn btn-success">Tambah Progress</button>
+                        </div>
+                    </form>
+                </app-modal>
+            </div>
+        `,
+      });
+
+      // ==================== MAIN VUE APP ====================
+      new Vue({
+        el: "#app",
+        data: {
+          activeTab: "stok",
+          bahanAjarData: null,
+          isLoading: true,
+        },
+        async created() {
+          console.log("Vue app initializing...");
+          this.bahanAjarData = await DataService.loadData();
+          this.isLoading = false;
+          console.log("App ready with data:", this.bahanAjarData);
+        },
+      });
+    </script>
+  </body>
+</html>
